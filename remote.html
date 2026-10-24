@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d12">
+<title>TV Remote</title>
+<link rel="icon" type="image/svg+xml" href="/icon.svg">
+<link rel="apple-touch-icon" href="/icon.svg">
+<style>
+  :root { --bg:#0b0d12; --card:#161a22; --btn:#232935; --line:#2c3340; --acc:#4f7cff; --red:#e5484d;
+          --green:#3dd68c; --yt:#e62117; --fg:#eef1f6; --mut:#8a94a6; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { height:100%; }
+  body { margin:0; background:var(--bg); color:var(--fg); overflow:hidden;
+         font:15px -apple-system, "PingFang SC", "Segoe UI", sans-serif; display:flex; justify-content:center; align-items:center; }
+  main { width:100%; max-width:400px; height:100dvh; max-height:900px; display:flex; flex-direction:column;
+         padding:max(14px, env(safe-area-inset-top)) 16px max(10px, env(safe-area-inset-bottom)); }
+  /* Remote: one screen, no scrolling. Wide screens get two columns. */
+  .remote { flex:1; min-height:0; display:flex; flex-direction:column; }
+  .col { display:flex; flex-direction:column; }
+  .col.l { flex:1 0 auto; justify-content:space-evenly; }
+  @media (min-width:760px) {
+    main { max-width:820px; height:min(100dvh, 620px); }
+    .remote { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:auto 1fr; gap:0 32px; }
+    .col.l { justify-content:center; gap:14px; }
+    .dpad { --d:clamp(170px, 34dvh, 240px); }
+    .remote > .chips { grid-column:1 / -1; }
+    .col.r { justify-content:center; }
+  }
+  button { font:inherit; color:var(--fg); border:0; cursor:pointer; background:var(--btn);
+           transition:filter .12s, transform .06s; }
+  button:hover { filter:brightness(1.15); }
+  button:active { transform:scale(.95); }
+  svg { width:24px; height:24px; fill:none; stroke:currentColor; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+
+  .chips { display:flex; gap:8px; overflow-x:auto; scrollbar-width:none; }
+  .chip { height:40px; padding:0 18px; border-radius:20px; white-space:nowrap; font-size:14px; flex:none; }
+  .chip.on { background:var(--acc); color:#fff; }
+  .chip.add { color:var(--mut); }
+
+  .head { display:flex; align-items:center; padding:10px 4px 4px; }
+  .head .info { flex:1; min-width:0; }
+  h1 { margin:0; font-size:24px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .status { display:flex; align-items:center; gap:8px; color:var(--mut); font-size:14px; margin-top:4px; }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--mut); }
+  .dot.on { background:var(--green); }
+  .round { border-radius:50%; display:grid; place-items:center; }
+  .power { width:54px; height:54px; background:var(--red); flex:none; }
+
+  /* D-pad scales with the screen height so everything fits */
+  .dpad { --d:clamp(150px, 23dvh, 264px); position:relative; width:var(--d); height:var(--d); margin:8px auto;
+          flex:none; border-radius:50%; background:var(--card); border:1px solid var(--line); }
+  .dpad .arr { position:absolute; width:29%; height:29%; background:transparent; }
+  .dpad .arr:hover { background:#ffffff10; }
+  .up { top:2%; left:35.5%; } .down { bottom:2%; left:35.5%; }
+  .left { left:2%; top:35.5%; } .right { right:2%; top:35.5%; }
+  .ok { position:absolute; inset:31%; background:var(--acc); color:#fff; font-size:20px; font-weight:700;
+        box-shadow:0 6px 18px #4f7cff55; }
+
+  .nav { display:flex; justify-content:space-around; }
+  .nav div { display:flex; flex-direction:column; align-items:center; gap:6px; color:var(--mut); font-size:12px; }
+  .nav button { width:52px; height:52px; }
+
+  .card { background:var(--card); border:1px solid var(--line); border-radius:20px; padding:12px 12px 12px 16px; margin-top:10px; }
+  .card .t { color:var(--mut); font-size:14px; display:flex; justify-content:space-between; }
+  .card .t b { color:var(--fg); }
+  .apps { display:flex; gap:8px; margin-top:8px; }
+  .yt { flex:1; height:40px; border-radius:20px; background:var(--yt); font-size:15px; }
+  .startup { flex:1.3; height:40px; border-radius:20px; color:var(--mut); font-size:13px; }
+  .vol { display:flex; align-items:center; gap:4px; margin-top:6px; }
+  .vol .mute { width:44px; height:44px; }
+  .vol .pm { width:40px; height:44px; background:transparent; }
+  input[type=range] { flex:1; accent-color:var(--acc); }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin-top:8px; }
+  .grid button { height:36px; border-radius:18px; font-size:13px; }
+  .grid button.on { background:var(--acc); color:#fff; }
+
+  .foot { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:6px; }
+  .tip { color:var(--mut); font-size:11px; }
+  .lang { display:block; margin:0 auto; background:transparent; color:var(--mut); font-size:13px; padding:8px 12px; border-radius:16px; flex:none; }
+  .foot .lang { margin:0; }
+  @media (max-width:759px) { .tip { display:none; } .foot { justify-content:center; } }
+
+  /* pairing */
+  .pair { width:100%; max-width:400px; margin:auto; }
+  .logo { width:64px; height:64px; border-radius:22px; background:var(--acc); display:grid; place-items:center; }
+  .logo svg { width:30px; height:30px; color:#fff; }
+  h2 { font-size:28px; margin:20px 4px 2px; }
+  .hint { color:var(--mut); font-size:14px; margin:8px 4px 4px; line-height:1.5; }
+  .field { width:100%; height:52px; margin:8px 0; padding:0 16px; border-radius:16px; border:0; background:var(--btn);
+           color:var(--fg); font-size:16px; outline:none; }
+  .field:focus { box-shadow:0 0 0 2px var(--acc); }
+  .primary { width:100%; height:54px; border-radius:16px; margin-top:8px; font-size:16px; }
+  .primary.blue { background:var(--acc); color:#fff; }
+  .ghost { background:transparent; color:var(--mut); }
+  .err { color:var(--red); }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main id="app"></main>
+
+<script>
+const ICON = {
+  power:'<path d="M7 6.5a7 7 0 1 0 10 0"/><path d="M12 3v8"/>',
+  up:'<path d="M6 15l6-6 6 6"/>', down:'<path d="M6 9l6 6 6-6"/>',
+  left:'<path d="M15 6l-6 6 6 6"/>', right:'<path d="M9 6l6 6-6 6"/>',
+  back:'<path d="M9 5L4 10l5 5"/><path d="M4 10h11a5 5 0 0 1 0 10h-2"/>',
+  home:'<path d="M3 12l9-8 9 8"/><path d="M5.5 10v10h13V10"/>',
+  menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',
+  mute:'<path d="M3 9h4l5-4v14l-5-4H3z"/><path d="M16 9l5 6M21 9l-5 6"/>',
+  minus:'<path d="M5 12h14"/>', plus:'<path d="M12 5v14M5 12h14"/>',
+  tv:'<rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8 21h8"/>',
+};
+const icon = n => `<svg viewBox="0 0 24 24">${ICON[n]}</svg>`;
+
+// ---- language: "auto" follows the browser ----
+let lang = localStore("lang") || "auto";
+const t = (zh, en) => ((lang === "auto" ? navigator.language : lang).startsWith("zh") ? zh : en);
+function localStore(k, v) {
+  try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch { return null; }
+}
+function langButton() {
+  const names = { auto: t("语言：跟随系统", "Language: System"), zh: "语言：中文", en: "Language: English" };
+  const b = el(`<button class="lang">🌐&nbsp; ${names[lang]}</button>`);
+  b.onclick = () => { lang = { auto:"zh", zh:"en", en:"auto" }[lang]; localStore("lang", lang); render(); };
+  return b;
+}
+
+// ---- api ----
+let tvs = [], apps = [], cur = +(localStore("cur") || 0), view = "remote", timer;
+const api = async (path, body) => {
+  const sep = path.includes("?") ? "&" : "?";
+  const r = await fetch(path + (path.startsWith("/api/pair") || path === "/api/tvs" ? "" : `${sep}tv=${cur}`),
+    body === undefined ? {} : { method:"POST", headers:{ "Content-Type":"application/json" }, body:JSON.stringify(body) });
+  const j = await r.json();
+  if (j.error) throw new Error(j.error);
+  return j;
+};
+const el = html => { const d = document.createElement("div"); d.innerHTML = html.trim(); return d.firstChild; };
+const $ = s => document.querySelector(s);
+function fail(e) { const s = $("#status"); if (s) s.innerHTML = `<span class="err">${t("出错：", "Error: ")}${e.message}</span>`; }
+const key = k => { navigator.vibrate?.(10); api("/api/key", { key:k }).then(() => setTimeout(refresh, 400)).catch(fail); };
+
+async function load() {
+  const j = await fetch("/api/tvs").then(r => r.json());
+  tvs = j.tvs; apps = j.apps;
+  if (cur >= tvs.length) cur = 0;
+  view = tvs.length ? "remote" : "pair";
+  render();
+}
+
+function render() {
+  clearInterval(timer);
+  document.documentElement.lang = t("zh", "en");
+  const app = $("#app");
+  app.innerHTML = "";
+  view === "pair" ? renderPair(app) : renderRemote(app);
+}
+
+// ---- remote ----
+function renderRemote(main) {
+  const tv = tvs[cur];
+  const app = el(`<div class="remote"></div>`);
+  main.append(app);
+  const chips = el(`<div class="chips"></div>`);
+  tvs.forEach((x, i) => {
+    const c = el(`<button class="chip ${i === cur ? "on" : ""}"></button>`);
+    c.textContent = x.name;
+    c.onclick = () => { if (i !== cur) { cur = i; localStore("cur", i); render(); } };
+    c.oncontextmenu = e => { e.preventDefault(); remove(i); };
+    let press; // long-press to remove on touch screens
+    c.ontouchstart = () => press = setTimeout(() => remove(i), 650);
+    c.ontouchend = c.ontouchmove = () => clearTimeout(press);
+    chips.append(c);
+  });
+  const add = el(`<button class="chip add">＋ ${t("添加", "Add")}</button>`);
+  add.onclick = () => { view = "pair"; render(); };
+  chips.append(add);
+  app.append(chips);
+  const L = el(`<div class="col l"></div>`), R = el(`<div class="col r"></div>`);
+  app.append(L, R);
+
+  L.append(el(`<div class="head"><div class="info"><h1></h1>
+      <div class="status"><span class="dot" id="dot"></span><span id="status">${t("连接中…", "Connecting…")}</span></div></div>
+      <button class="round power" data-k="power" aria-label="Power">${icon("power")}</button></div>`));
+  $("h1").textContent = tv.name;
+
+  L.append(el(`<div class="dpad">
+      <button class="round arr up" data-k="up">${icon("up")}</button>
+      <button class="round arr down" data-k="down">${icon("down")}</button>
+      <button class="round arr left" data-k="left">${icon("left")}</button>
+      <button class="round arr right" data-k="right">${icon("right")}</button>
+      <button class="round ok" data-k="ok">OK</button></div>`));
+
+  L.append(el(`<div class="nav">
+      <div><button class="round" data-k="back">${icon("back")}</button>${t("返回", "Back")}</div>
+      <div><button class="round" data-k="home">${icon("home")}</button>${t("主页", "Home")}</div>
+      <div><button class="round" data-k="menu">${icon("menu")}</button>${t("菜单", "Menu")}</div></div>`));
+
+  R.append(el(`<div class="card"><div class="t">${t("应用", "Apps")}</div>
+      <div class="apps"><button class="yt" id="yt">YouTube</button><button class="startup" id="startup"></button></div></div>`));
+  $("#yt").onclick = () => { navigator.vibrate?.(10); api("/api/app", { name:"YouTube" }).catch(fail); };
+  const startLabel = () => $("#startup").textContent =
+    t("开机打开：", "On power-on: ") + (tv.startApp || t("不打开", "Nothing"));
+  startLabel();
+  $("#startup").onclick = () => { // cycle: none -> each app -> none
+    const order = ["", ...apps];
+    tv.startApp = order[(order.indexOf(tv.startApp) + 1) % order.length];
+    startLabel();
+    api("/api/startapp", { value:tv.startApp }).catch(fail);
+  };
+
+  R.append(el(`<div class="card"><div class="t">${t("音量", "Volume")}<b id="volv">–</b></div>
+      <div class="vol"><button class="round mute" data-k="mute">${icon("mute")}</button>
+      <button class="round pm" data-k="vol-">${icon("minus")}</button>
+      <input type="range" id="vol" min="0" max="100">
+      <button class="round pm" data-k="vol+">${icon("plus")}</button></div></div>`));
+  $("#vol").oninput = e => $("#volv").textContent = e.target.value;
+  $("#vol").onchange = e => api("/api/volume", { value:+e.target.value }).catch(fail);
+
+  R.append(el(`<div class="card"><div class="t">${t("输入源", "Inputs")}</div><div class="grid" id="inputs"></div></div>`));
+  const foot = el(`<div class="foot"><span class="tip">${t("点上方名字切换电视，长按或右键可删除。", "Tap a name above to switch TVs; long-press or right-click to remove.")}</span></div>`);
+  foot.append(langButton());
+  R.append(foot);
+
+  app.querySelectorAll("[data-k]").forEach(b => b.onclick = () => key(b.dataset.k));
+  refresh();
+  timer = setInterval(refresh, 5000);
+}
+
+async function refresh() {
+  if (view !== "remote") return;
+  const shown = cur;
+  try {
+    const s = await api("/api/state");
+    if (shown !== cur || view !== "remote") return; // switched meanwhile
+    $("#status").textContent = `${s.power ? t("已开机", "On") : t("待机", "Standby")} · ${s.input}`;
+    $("#dot").className = "dot" + (s.power ? " on" : "");
+    if (document.activeElement !== $("#vol")) { $("#vol").value = s.volume; $("#volv").textContent = s.volume; }
+    const box = $("#inputs");
+    box.innerHTML = "";
+    for (const i of s.inputs) {
+      const b = el(`<button class="${i.name === s.input || i.label === s.input ? "on" : ""}"></button>`);
+      b.textContent = i.name;
+      b.onclick = () => api("/api/input", { value:i.name }).then(() => setTimeout(refresh, 800)).catch(fail);
+      box.append(b);
+    }
+  } catch (e) {
+    if (shown === cur) $("#status").innerHTML = `<span class="err">${t("连不上电视", "Can't reach the TV")}</span>`;
+  }
+}
+
+async function remove(i) {
+  if (!confirm(t(`删除“${tvs[i].name}”？`, `Remove “${tvs[i].name}”?`))) return;
+  await fetch(`/api/remove?tv=${i}`, { method:"POST", body:"{}" });
+  cur = 0; localStore("cur", 0);
+  load();
+}
+
+// ---- pairing ----
+function renderPair(main) {
+  const app = el(`<div class="pair"></div>`);
+  main.append(app);
+  app.append(el(`<div class="logo">${icon("tv")}</div>`));
+  app.append(el(`<h2 style="margin-top:20px">${t("添加电视", "Add TV")}</h2>`));
+  app.append(el(`<div class="hint" id="status">${t("输入电视 IP，点“开始配对”，电视上会出现 PIN 码。",
+      "Enter the TV's IP and tap “Start pairing”. A PIN will appear on the TV.")}</div>`));
+  app.append(el(`<input class="field" id="ip" inputmode="decimal" placeholder="${t("电视 IP，例如 192.168.1.20", "TV IP, e.g. 192.168.1.20")}">`));
+  app.append(el(`<button class="primary blue" id="start">${t("开始配对", "Start pairing")}</button>`));
+  app.append(el(`<input class="field" id="pin" inputmode="numeric" placeholder="${t("PIN 码", "PIN")}" hidden>`));
+  app.append(el(`<button class="primary blue" id="finish" hidden>${t("完成配对", "Finish pairing")}</button>`));
+  if (tvs.length) {
+    const c = el(`<button class="primary ghost">${t("取消", "Cancel")}</button>`);
+    c.onclick = () => { view = "remote"; render(); };
+    app.append(c);
+  }
+  app.append(langButton());
+
+  let host;
+  $("#start").onclick = async () => {
+    const ip = $("#ip").value.trim();
+    if (!ip) return;
+    $("#status").textContent = t("正在连接…", "Connecting…");
+    try {
+      host = (await api("/api/pair/start", { ip })).host;
+      $("#status").textContent = t("请输入电视上显示的 PIN 码", "Enter the PIN shown on the TV");
+      $("#start").textContent = t("重新发送 PIN", "Resend PIN");
+      $("#start").classList.remove("blue");
+      $("#pin").hidden = $("#finish").hidden = false;
+      $("#pin").focus();
+    } catch (e) { fail(e); }
+  };
+  const finish = async () => {
+    try {
+      cur = (await api("/api/pair/finish", { host, pin:$("#pin").value })).index;
+      localStore("cur", cur);
+      load();
+    } catch (e) { fail(e); }
+  };
+  $("#finish").onclick = finish;
+  $("#pin").onkeydown = e => e.key === "Enter" && finish();
+  $("#ip").onkeydown = e => e.key === "Enter" && $("#start").click();
+}
+
+// keyboard shortcuts on the remote screen
+const keymap = { ArrowUp:"up", ArrowDown:"down", ArrowLeft:"left", ArrowRight:"right", Enter:"ok",
+                 Backspace:"back", Escape:"back", h:"home", m:"mute", "=":"vol+", "+":"vol+", "-":"vol-" };
+document.addEventListener("keydown", e => {
+  if (view !== "remote" || e.target.tagName === "INPUT" || !keymap[e.key]) return;
+  e.preventDefault(); key(keymap[e.key]);
+});
+
+load();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+# TV pairing tokens
+.tv_auth.json
+tvs.json
+
+# Build output
+android/build/
+*.apk
+*.idsig
+
+__pycache__/
+.DS_Store
