@@ -44,14 +44,13 @@ jobs:
 
       - name: Build APK
         env:
-          ANDROID_SDK: ${{ env.ANDROID_HOME }}
           VERSION_NAME: ${{ inputs.version }}
           VERSION_CODE: ${{ github.run_number }}
           KEYSTORE: ${{ runner.temp }}/release.keystore
           KS_PASS: ${{ secrets.KEYSTORE_PASSWORD || 'android' }}
           KEY_PASS: ${{ secrets.KEY_PASSWORD || secrets.KEYSTORE_PASSWORD || 'android' }}
         run: |
-          sh android/build.sh
+          ANDROID_SDK="$ANDROID_HOME" sh android/build.sh
           mv android/TVRemote.apk "RemoteZio-${{ inputs.version }}.apk"
 
       - name: Publish release
